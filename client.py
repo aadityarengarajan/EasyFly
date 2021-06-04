@@ -68,6 +68,10 @@ import os
 
 import json
 
+#/- creating PDF OFP Document
+
+from pdfkit import from_url as HTMLToPDF
+
 
 # /* creating the discord client */
 
@@ -81,7 +85,7 @@ client.remove_command('help')
 #        - discord client token which will be obtained from environment variables 
 #        - discord client version */
 
-token = os.getenv("EASYFLY_CLIENT_TOKEN")
+token = 'ODMxNjA4MDUyMDEyMDIzODM5.YHXtWg.yBFqZ4y127PdBEfIk0Own131vcg' # os.getenv("EASYFLY_CLIENT_TOKEN")
 CLIENT_VERSION = 'build-0406-202106-3209-27-oss'
 
 # /* creating a list of authorized developers to report logs to,
@@ -318,6 +322,13 @@ async def plan(ctx):
     #/- flight planning module, creates a flight plan
     #   and flight briefing within discord for a given user
 
+    #/- clearing any old dispatch documents
+
+    try:
+        os.remove("data/dispatch.pdf")
+    except:
+        pass
+
     def check(msg):
 
         #/- required function to check for input
@@ -333,10 +344,10 @@ async def plan(ctx):
 
     #/- requesting for variables to create flight plan
 
-    embed=discord.Embed(title="Enter Departure ICAO", description="Example : OKBK")
+    embed=discord.Embed(title="Enter Departure ICAO and Arrival ICAO (separated by '/')", description="Example : OKBK/VOMM")
     await ctx.send(embed=embed)
-    frm = await client.wait_for("message", check=check)
-    frm = frm.content
+    input_one = await client.wait_for("message", check=check)
+    frm = input_one.content.split("/")[0].replace("/","")
     try:
 
         #/- confirming that the airport is not non-existent
@@ -347,15 +358,13 @@ async def plan(ctx):
 
         #/- ending the process in case of invalid airport
 
-        embed=discord.Embed(title="Invalid ICAO!", description="Such an ICAO does not exist! Please check List of Airports by ICAO Code by clicking the Error Title.", url="https://en.wikipedia.org/wiki/List_of_airports_by_IATA_and_ICAO_code",color=discord.Colour.red())
+        embed=discord.Embed(title="Invalid Departure ICAO!", description="Such an ICAO does not exist! Please check List of Airports by ICAO Code by clicking the Error Title.", url="https://en.wikipedia.org/wiki/List_of_airports_by_IATA_and_ICAO_code",color=discord.Colour.red())
         await ctx.send(embed=embed)
 
         return None
 
-    embed=discord.Embed(title="Enter Arrival ICAO", description="Example : VOMM")
-    await ctx.send(embed=embed)
-    to = await client.wait_for("message", check=check)
-    to = to.content
+    to = input_one.content.split("/")[1].replace("/","")
+
     try:
 
         #/- confirming that the airport is not non-existent
@@ -365,29 +374,27 @@ async def plan(ctx):
 
         #/- ending the process in case of invalid airport
 
-        embed=discord.Embed(title="Invalid ICAO!", description="Such an ICAO does not exist! Please check List of Airports by ICAO Code by clicking the Error Title.", url="https://en.wikipedia.org/wiki/List_of_airports_by_IATA_and_ICAO_code",color=discord.Colour.red())
+        embed=discord.Embed(title="Invalid Arrival ICAO!", description="Such an ICAO does not exist! Please check List of Airports by ICAO Code by clicking the Error Title.", url="https://en.wikipedia.org/wiki/List_of_airports_by_IATA_and_ICAO_code",color=discord.Colour.red())
         await ctx.send(embed=embed)
 
         return None
 
-    embed=discord.Embed(title="Enter Callsign", description="Example : KAC343")
+    embed=discord.Embed(title="Enter Callsign and Aircraft Type (separated by '/')", description="Example : KAC343/B77W")
+    embed.set_footer(text="Please use ICAO Standard Codes - refer to : https://www.icao.int/publications/doc8643/pages/search.aspx")
     await ctx.send(embed=embed)
-    callsign = await client.wait_for("message", check=check)
-    callsign = callsign.content
+    input_two = await client.wait_for("message", check=check)
+    callsign = input_two.content.split("/")[0].replace("/","")
 
     #/- assuming average cruising speed/TAS as
     #   490 knots
 
     kts = "490"
-
-    embed=discord.Embed(title="Enter Aircraft Type", description="Example : B77W")
-    embed.set_footer(text="Please use ICAO Standard Codes - refer to : https://www.icao.int/publications/doc8643/pages/search.aspx")
-    await ctx.send(embed=embed)
-    aircraft = await client.wait_for("message", check=check)
+    
+    aircraft = input_two.content.split("/")[1].replace("/","")
 
     #/- checking if aircraft code is valid
 
-    if modules.aircraft.check(str(aircraft.content.upper())) == False:
+    if modules.aircraft.check(str(aircraft.upper())) == False:
 
         #/- ending the process in case of invalid airport
 
@@ -395,8 +402,6 @@ async def plan(ctx):
         await ctx.send(embed=embed)
 
         return None
-
-    aircraft = aircraft.content
 
     embed=discord.Embed(title="Enter Custom Remarks", description="Example : Vande Bharat Mission")
     embed.set_footer(text="If you have no custom remarks, enter 'XXX'.")
@@ -411,7 +416,7 @@ async def plan(ctx):
     if str(pic).upper()=="NONE":
         pic = member.name
 
-    message = await ctx.send(f"Standby as we create a flight plan. This might take a while as we generate the OFP too :grin:")
+    message = await ctx.send(f"Standby as we create a flight plan. Please allow upto 1 minute as we generate the OFP too :grin:")
 
     #/- trying to get wake turbulence category
     #   of aircraft in case known
@@ -612,7 +617,6 @@ async def plan(ctx):
 
     {deptrwys}
 
-    **__[{deptapt} NOTAMS]({dnot})__**
     '''
         aweatherdet = f'''
     ARRIVAL AIRPORT : {arraptname} ({arrapt})
@@ -624,7 +628,6 @@ async def plan(ctx):
 
     {arrrwys}
 
-    **__[{arrapt} NOTAMS]({anot})__**
     '''
         
         #/- guide text to use ICAO format flight plan
@@ -643,7 +646,14 @@ async def plan(ctx):
 
         embed.set_author(name="FPL MESSAGE FOR ATS (X.400 AMHS)")
 
-        embed.add_field(name=f"{callsign}", value=str(atsfpl), inline=False)
+        formatted_atsfpl = str((atsfpl.strip()).replace('-'.join(atsfpl.split("-")[-3:]),"").replace(" ","").replace("\n","") + '-'.join(atsfpl.split("-")[-3:])).replace("\n",'')
+        formatted_atsfpl = str(formatted_atsfpl.split("IS-")[0]
+                                                     +"IS\n-"
+                                        +formatted_atsfpl.split("IS-")[1].split("LB1")[0]
+                                                     +"LB1\n"
+                                        +formatted_atsfpl.split("LB1")[1].replace("-","\n-")).replace("\n\n","\n")
+
+        embed.add_field(name=f"{callsign}", value=str(formatted_atsfpl), inline=False)
 
         #/- prefile links for IVAO, VATSIM, POSCON, PilotEdge
 
@@ -746,6 +756,8 @@ flightplan[remarks]=RMK/TCAS {rem} GENERATED BY EASYFLY FOR SIMULATION ONLY'''.r
             logo = f"http://pics.avs.io/500/500/{IATACODEOFAIRLINE}.png"
             briefembed.set_thumbnail(url = logo)
 
+        briefembed.set_image(url=f"http://www.gcmap.com/map?P={deptapt}-{arrapt}&MS=wls&MR=300&MX=720x360&PM=*")
+
         #/- embed for weather details
 
         
@@ -764,7 +776,15 @@ flightplan[remarks]=RMK/TCAS {rem} GENERATED BY EASYFLY FOR SIMULATION ONLY'''.r
         ofpembedsd = discord.Embed(
                 colour = discord.Colour.from_rgb(0, 70, 130))
 
-        ofpembedsd.add_field(name=f"OFP", value=f"**[Pilot Essential Documents](https://ofp.intellx.co.in/ofp/documents?fpl={atsfpl}&dbcode={dbcode})**", inline=False)
+        ofpembedsd.add_field(name=f"OFP + Route Map", value=f"**[Pilot Essential Documents](https://ofp.intellx.co.in/ofp/documents?fpl={atsfpl}&dbcode={dbcode})**", inline=False)
+
+        #/- flight briefing as PDF
+
+        make_pdf = HTMLToPDF(
+            f'http://ofp.intellx.co.in/rendered?fpl={atsfpl}&dbcode={dbcode}',
+            'data/dispatch.pdf',
+        )
+        dispatchpdf = discord.File("data/dispatch.pdf", filename=f'DISPATCH-EASYFLY_{callsign}_{deptapt}{arrapt}_{str(dt.now().strftime("%y%m%d"))}-INTELLX.pdf')
 
         #/- sendinf the flight plan briefing
 
@@ -784,6 +804,32 @@ Here's your flight briefing for today : -
         logs(f'\n[{datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}] @{member.name} generated a flight plan\n')
         logs(atsfpl)
         logs('\n')
+
+        #/- embed for exporting flight plans
+        #/- powered by flightplandatabase
+
+        exportembed = discord.Embed(
+            title = 'Export Flight Route'
+            )
+
+        exportembed.add_field(name=f"Export", value=f'''**[JSON](http://ofp.intellx.co.in/export/{dbcode}/json)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[XML](http://ofp.intellx.co.in/export/{dbcode}/xml)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[CSV](http://ofp.intellx.co.in/export/{dbcode}/csv)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[PDF](http://ofp.intellx.co.in/export/{dbcode}/pdf)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[KML](http://ofp.intellx.co.in/export/{dbcode}/kml)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[X-Plane](http://ofp.intellx.co.in/export/{dbcode}/xplane)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[X-Plane 11](http://ofp.intellx.co.in/export/{dbcode}/xplane11)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[FS9](http://ofp.intellx.co.in/export/{dbcode}/fs9)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[FSX](http://ofp.intellx.co.in/export/{dbcode}/fsx)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[Squawkbox](http://ofp.intellx.co.in/export/{dbcode}/squawkbox)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[X-FMC](http://ofp.intellx.co.in/export/{dbcode}/xfmc)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[PMDG](http://ofp.intellx.co.in/export/{dbcode}/pmdg)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[Airbus-X](http://ofp.intellx.co.in/export/{dbcode}/airbusx)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[Quality Wings](http://ofp.intellx.co.in/export/{dbcode}/qualitywings)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[iFly 747](http://ofp.intellx.co.in/export/{dbcode}/ifly747)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[Flight Gear](http://ofp.intellx.co.in/export/{dbcode}/flightgear)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[TFDi 747](http://ofp.intellx.co.in/export/{dbcode}/tfdi747)**''', inline=True)
+        exportembed.add_field(name=f"Export", value=f'''**[Infinite Flight](http://ofp.intellx.co.in/export/{dbcode}/infiniteflight)**''', inline=True)
 
         #/- send briefing to user
 
@@ -819,13 +865,21 @@ Here's your flight briefing for today : -
         except:
             pass
 
+        #/- send exporting embed
+
+        await member.send(embed=exportembed)
+
 
         #/- try to send prefile links
 
         try:
             await member.send(embed=prefilesembed)
             await member.send(embed=ofpembedsd)
-            await member.send(f'Be it a group flight or personal, prefile it on your favorite networks by clicking the links above :upside_down:\nHave a great flight captain {pic}!\nGood Day!')
+            await member.send(f'Be it a group flight or personal, prefile it on your favorite networks by clicking the links above :upside_down:')
+
+            await member.send(file=dispatchpdf)
+
+            await member.send(f'\nHave a great flight captain {pic}!\nGood Day!')
         except:
             try:
 
@@ -834,11 +888,18 @@ Here's your flight briefing for today : -
 
                 await member.send(embed=prefilesembed)
                 await member.send(embed=ofpembedsd)
-                await member.send(f'Be it a group flight or personal, prefile it on your favorite networks by clicking the links above :upside_down:\nHave a great flight captain {pic}!\nGood Day!')
+                await member.send(f'Be it a group flight or personal, prefile it on your favorite networks by clicking the links above :upside_down:')
+
+                await member.send(file=dispatchpdf)
+
+                await member.send(f'\nHave a great flight captain {pic}!\nGood Day!')
+
             except Exception:
 
                 #/- only possible expected exception is if
                 #   the link is too long to fit in an embed
+
+                await member.send(file=dispatchpdf)
 
                 await member.send(f'Have a great flight captain {pic}!\nGood Day!')
                 await ctx.send(f"Sorry Captain {pic}, we faced an error while generating your pre-file links. Perhaps your flight plan was too long.\nHowever, your flight briefing and plan was sent to you on PMs, enjoy your flight captain, Good Day!")
