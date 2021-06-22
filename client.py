@@ -1331,7 +1331,7 @@ async def track(ctx,*,icao):
                 #   using phonetic callsign "MMV02" => "Mike Mike Victor 02"
 
                 AIRLINE_NAME = ""
-                for i in str(callsign[0:3]):
+                for i in str(flight.get("callsign")[0:3]):
                     AIRLINE_NAME += phonetic(i)
                     AIRLINE_NAME += ' '
 
@@ -1422,32 +1422,32 @@ async def track(ctx,*,icao):
 
             #/- try to fetch the image
 
-            # try:
-
             try:
-                aircraft_type=flight["flight_plan"]["aircraft"].split("/")[1]
+
+                try:
+                    aircraft_type=flight["flight_plan"]["aircraft"].split("/")[1]
+                except:
+                    aircraft_type=flight["flight plan"].split("/")[1]
+
+                if modules.aircraft.check(aircraft_type)==True:
+
+                    aircraft_name = (modules.aircraft.get_name(aircraft_type)).split("-")[0]
+                    link = f"https://www.jetphotos.com/showphotos.php?aircraft={aircraft_name}%3B&airline={fullcallsign.replace(fullcallsign.split(' ')[-1],'')}&country-location=all&photographer-group=all&keywords-contain=3&keywords=&photo-year=all&genre=all&search-type=Advanced&sort-order=0".replace(" ","%20")
+                    print(link)
+                    links = []
+
+                    for i in BeautifulSoup(requests.get(link).content).find_all("img"):
+                        if "cdn.jetphotos" in i["src"]:
+                            links.append(i["src"])
+
+                    image_url = choice(links).replace("//cdn","https://cdn")
+                        
+                    embed.set_image(url=str(image_url).replace(" ","%20"))
+
+                    embed.set_footer(text=f"*the image may not be the same registration as the flight. it is an image of the same aircraft type and airlines only for illustration purpose.")
+
             except:
-                aircraft_type=flight["flight plan"].split("/")[1]
-
-            if modules.aircraft.check(aircraft_type)==True:
-
-                aircraft_name = (modules.aircraft.get_name(aircraft_type)).split("-")[0]
-                link = f"https://www.jetphotos.com/showphotos.php?aircraft={aircraft_name}%3B&airline={fullcallsign.replace(fullcallsign.split(' ')[-1],'')}&country-location=all&photographer-group=all&keywords-contain=3&keywords=&photo-year=all&genre=all&search-type=Advanced&sort-order=0".replace(" ","%20")
-                print(link)
-                links = []
-
-                for i in BeautifulSoup(requests.get(link).content).find_all("img"):
-                    if "cdn.jetphotos" in i["src"]:
-                        links.append(i["src"])
-
-                image_url = choice(links).replace("//cdn","https://cdn")
-                    
-                embed.set_image(url=str(image_url).replace(" ","%20"))
-
-                embed.set_footer(text=f"*the image may not be the same registration as the flight. it is an image of the same aircraft type and airlines only for illustration purpose.")
-
-            # except:
-            #     pass
+                pass
 
             #/- try to delete the "Fetching..." message
 
