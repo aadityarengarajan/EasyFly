@@ -68,6 +68,7 @@ icao_dictionary = {
 'Airbus A340-600': 'A346' ,
 'Airbus A350-900': 'A359' ,
 'Airbus A350-1000': 'A35K' ,
+'Airbus A380-800': 'A380' ,
 'Airbus A380-800': 'A388' ,
 '"Airbus A300-600ST ""Super Transporter"" / ""Beluga"""': 'A3ST' ,
 'Airbus A400M Atlas': 'A400' ,
@@ -380,3 +381,8 @@ def check(acft):
 		return True
 	else:
 		return False
+
+def get_name(code):
+	for key,value in icao_dictionary.items():
+		if value==code:
+			return key

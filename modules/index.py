@@ -57,12 +57,7 @@ from bs4 import BeautifulSoup
 
 # /* fetching dynamically changing API base URL */
 
-API_FETCH_URL = "http://api.intellx.co.in/"
-VORTEX_API_BASE_URL = BeautifulSoup(requests.get(API_FETCH_URL).text, features="lxml").find("frame")["src"]
-
-# /* changing protocol because API is not HTTPS rather over HTTP */
-
-VORTEX_API_BASE_URL = VORTEX_API_BASE_URL.replace("https://","http://")
+VORTEX_API_BASE_URL = "https://api.intellx.co.in/"
 
 API_ACCESS_PERMIT = getenv("VORTEX_ACCESS_PERMIT")
 
